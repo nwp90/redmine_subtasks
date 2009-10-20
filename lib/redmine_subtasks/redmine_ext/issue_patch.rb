@@ -189,15 +189,46 @@ module RedmineSubtasks
             if leaf? 
               read_attribute(:done_ratio)
             else
-              @total_planned_days ||= 0
-              @total_actual_days ||= 0
+              @total_est_hours = 0
+              @total_done_hours = 0
+	      estimated_tasks = 0
+	      unestimated_tasks = 0
+	      unestimated_done_percentage = 0
+#              @total_planned_days ||= 0
+#              @total_actual_days ||= 0
               children.each do |child| # from every subtask get the total number of days and the number of days already "worked"
-                planned_days = child.duration1
-                actual_days = child.done_ratio ?  (planned_days * child.done_ratio / 100).floor : 0
-                @total_planned_days += planned_days
-                @total_actual_days += actual_days
+                est_hours = child.estimated_hours
+		if est_hours.nil?
+		  unestimated_tasks += 1
+		  unestimated_done_percentage += child.done_ratio
+                else
+                  done_hours = child.done_ratio ? (est_hours * child.done_ratio / 100) : 0
+		  estimated_tasks += 1
+                  @total_est_hours += est_hours
+                  @total_done_hours += done_hours
+                end
+#                planned_days = child.duration1
+#                actual_days = child.done_ratio ?  (planned_days * child.done_ratio / 100).floor : 0
+#                @total_planned_days += planned_days
+#                @total_actual_days += actual_days
               end
-              @total_done_ratio = @total_planned_days != 0 ? (@total_actual_days * 100 / @total_planned_days).floor : 0
+	      mean_time = estimated_tasks != 0 ? (@total_est_hours / estimated_tasks) : 1
+	      unestimated_hours = unestimated_tasks * mean_time
+	      unestimated_done_ratio = unestimated_tasks != 0 ? (Float(unestimated_done_percentage) / unestimated_tasks) : 0
+	      unestimated_done_hours = unestimated_tasks != 0 ? (unestimated_done_ratio * unestimated_hours / 100) : 0
+	      @total_est_hours += unestimated_hours
+	      @total_done_hours += unestimated_done_hours
+              @total_done_ratio = @total_est_hours != 0 ? (@total_done_hours * 100 / @total_est_hours).floor : 0
+
+	      logger.debug "----"
+	      logger.debug "estimated tasks: %d, unestimated: %d" % [estimated_tasks, unestimated_tasks]
+	      logger.debug "mean time: %.2f  unest. percentage: %.2f" % [mean_time, unestimated_done_percentage]
+	      logger.debug "unest. done ratio: %.2f" % unestimated_done_ratio
+	      logger.debug "estimated hours: %.2f, unestimated: %.2f" % [@total_est_hours, unestimated_hours]
+	      logger.debug "estimated done: %.2f, unestimated: %.2f" % [@total_done_hours, unestimated_done_hours]
+	      logger.debug "total done %%: %d" % @total_done_ratio
+#              @total_done_ratio = @total_planned_days != 0 ? (@total_actual_days * 100 / @total_planned_days).floor : 0
+	      @total_done_ratio
             end
           end
           
@@ -205,7 +236,7 @@ module RedmineSubtasks
             if leaf?
               read_attribute(:estimated_hours)
             else
-              is_set = false
+	      is_set = false
               children.each do |child|
                 if child.estimated_hours
                   if is_set
