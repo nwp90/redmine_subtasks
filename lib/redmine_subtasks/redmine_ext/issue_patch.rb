@@ -256,7 +256,11 @@ module RedmineSubtasks
               read_attribute( :due_date)
             else
               dates = children.map( &:due_date)
-              dates.select {|d| d } .max if ( dates && dates.any?)
+              if ( dates && dates.any?)
+	        dates.select {|d| d } .max
+	      else
+                read_attribute( :due_date)
+              end
             end
           end  
 
