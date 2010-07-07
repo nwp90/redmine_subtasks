@@ -71,7 +71,11 @@ module RedmineSubtasks
             # If target version is set, but "Due to" date is not, set
             # it as the same as the date of target version.
             if leaf? && due_date.nil? && fixed_version && fixed_version.due_date
-              self.update_attribute :due_date, fixed_version.due_date
+              # Make sure we don't set due_date before start_date, as we can't
+	      # subsequently modify the issue at all if we do.
+	      if start_date.nil? or start_date < fixed_version.due_date
+	      	 self.update_attribute :due_date, fixed_version.due_date
+	      end
             end
 
             if parent
@@ -256,6 +260,7 @@ module RedmineSubtasks
               read_attribute( :due_date)
             else
               dates = children.map( &:due_date)
+	      dates << self.start_date
               if ( dates && dates.any?)
 	        dates.select {|d| d } .max
 	      else
